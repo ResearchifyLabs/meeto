@@ -4,6 +4,16 @@ BIN := $(VENV)/bin
 
 .PHONY: setup lint format test clean build
 
+help:
+	@echo "Available commands:"
+	@echo "  setup       Setup the development environment"
+	@echo "  lint        Run linting checks"
+	@echo "  format      Format the code"
+	@echo "  test        Run tests"
+	@echo "  clean       Clean up temporary files"
+	@echo "  build       Build the package"
+	@echo "  help        Show this help message"
+
 setup:
 	$(PYTHON) -m venv $(VENV)
 	$(BIN)/pip install --upgrade pip
