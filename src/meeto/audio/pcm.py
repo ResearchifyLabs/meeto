@@ -1,10 +1,10 @@
 """PCM conversion helpers."""
 
 from array import array
-from typing import Iterable, List
+from collections.abc import Iterable
 
 
-def downsample_float32(samples: Iterable[float], in_rate: int, out_rate: int) -> List[float]:
+def downsample_float32(samples: Iterable[float], in_rate: int, out_rate: int) -> list[float]:
     if in_rate <= 0 or out_rate <= 0:
         raise ValueError("Sample rates must be positive.")
     if out_rate > in_rate:

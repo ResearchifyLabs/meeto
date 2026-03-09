@@ -12,9 +12,10 @@ git clone https://github.com/ResearchifyLabs/meeto.git
 cd meeto
 make setup
 source .venv/bin/activate
+make pre-commit
 ```
 
-This creates a virtual environment, installs all dependencies, installs the package in editable mode, and downloads Playwright's Chromium browser.
+This creates a virtual environment, installs all dependencies, installs the package in editable mode, downloads Playwright's Chromium browser, and sets up pre-commit hooks.
 
 ## Running Tests
 
@@ -24,14 +25,14 @@ make test
 
 ## Code Style
 
-Format code before committing:
+The project uses [Ruff](https://docs.astral.sh/ruff/) for linting and formatting (120-character line length).
 
 ```bash
-make format   # auto-fix with black + autoflake
+make format   # auto-fix lint issues and format
 make lint     # check without modifying
 ```
 
-The project uses `black` with a 120-character line length.
+Pre-commit hooks run these checks automatically on every commit.
 
 ## Adding a New STT Provider
 
@@ -58,7 +59,8 @@ class MyStorageAdapter(ArtifactStorageAdapter):
 
 ## Pull Requests
 
-1. Branch off `main`
+1. Branch off `main` using `feature/<name>`, `fix/<name>`, or `docs/<name>`
 2. Make your changes
-3. Run `make format && make lint && make test`
-4. Push and open a PR against `main`
+3. Update `CHANGELOG.md` under `[Unreleased]`
+4. Run `make format && make lint && make test`
+5. Push and open a PR against `main`

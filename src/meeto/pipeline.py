@@ -9,10 +9,7 @@ from typing import Optional
 from meeto.audio_writer import AudioDumpWriter
 from meeto.config.models import AudioConfig, SttConfig
 from meeto.meet.joiner import MeetSession
-from meeto.meet.speaker_attribution import (
-    SpeakerAttributionAdapter,
-    create_speaker_attribution,
-)
+from meeto.meet.speaker_attribution import SpeakerAttributionAdapter, create_speaker_attribution
 from meeto.storage import ArtifactStorageAdapter, LocalStorageAdapter
 from meeto.stt.base import STTStreamingAdapter
 from meeto.stt.factory import create_stt_adapter
@@ -287,6 +284,7 @@ async def setup_pipeline(
     audio: AudioConfig = None,
     stt: SttConfig = None,
     storage_adapter: Optional[ArtifactStorageAdapter] = None,
+    stt_adapter: Optional[STTStreamingAdapter] = None,
 ) -> PipelineSession:
     if audio is None:
         audio = AudioConfig()
@@ -297,7 +295,6 @@ async def setup_pipeline(
 
     page = session.page
     audio_writer = None
-    stt_adapter = None
     speaker_attribution = None
     transcript_writer = None
 
@@ -315,7 +312,7 @@ async def setup_pipeline(
             _logger.exception("GMEET: failed to initialize audio dump writer")
             audio_writer = None
 
-    if stt.provider:
+    if stt_adapter or stt.provider:
         try:
             speaker_attribution = create_speaker_attribution(stt.diarization, page=page)
             await speaker_attribution.start()
@@ -336,11 +333,12 @@ async def setup_pipeline(
             transcript_writer = None
 
         try:
-            adapter_kwargs = dict(stt.extra)
-            adapter_kwargs.setdefault("sample_rate", audio.sample_rate)
-            if stt.api_key:
-                adapter_kwargs.setdefault("api_key", stt.api_key)
-            stt_adapter = create_stt_adapter(stt.provider, **adapter_kwargs)
+            if stt_adapter is None:
+                adapter_kwargs = dict(stt.extra)
+                adapter_kwargs.setdefault("sample_rate", audio.sample_rate)
+                if stt.api_key:
+                    adapter_kwargs.setdefault("api_key", stt.api_key)
+                stt_adapter = create_stt_adapter(stt.provider, **adapter_kwargs)
             await _connect_stt_with_retries(
                 stt_adapter,
                 provider=stt.provider,

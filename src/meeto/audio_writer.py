@@ -62,7 +62,7 @@ class AudioDumpWriter:
         self._filepath = os.path.join(self.audio_dir, self._filename)
 
         # Open file for binary writing
-        self._file = open(self._filepath, "wb")
+        self._file = open(self._filepath, "wb")  # noqa: SIM115
         self._bytes_written = 0
         _logger.info(
             "GMEET: audio dump file opened: %s (sample_rate=%s, channels=%s)",

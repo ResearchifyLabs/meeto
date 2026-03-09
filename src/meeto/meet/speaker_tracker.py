@@ -8,8 +8,9 @@ for resolving participant names.
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ class SpeakerTracker:
 
     page: object  # Playwright page
     _current_speaker: Optional[str] = None
-    _speaker_history: List[SpeakerEvent] = field(default_factory=list)
+    _speaker_history: list[SpeakerEvent] = field(default_factory=list)
     _on_speaker_change: Optional[Callable[[str, bool], None]] = None
     _running: bool = False
 
@@ -202,8 +203,11 @@ def _speaker_tracking_script() -> str:
 
     // --- Participant name scraping ---
 
-    const BOT_NAME = /^(automation|bot|recorder|notetaker|meeting\s*bot)/i;
-    const UI_TEXT = /^(you|pin|mute|unmute|remove|turn|more|present|share|raise|lower|add|host|admit|deny|record|caption|setting|help|feedback|report|camera|microphone|background|reframe|reaction)/i;
+    const BOT_NAME = /^(automation|bot|recorder|notetaker|meeting\\s*bot)/i;
+    const UI_TEXT = /^(you|pin|mute|unmute|remove|turn|more|present|share|raise|lower|add|host)/i;
+    const UI_TEXT_2 = /^(admit|deny|record|caption|setting|help|feedback|report)/i;
+    const UI_TEXT_3 = /^(camera|microphone|background|reframe|reaction)/i;
+    function isUIText(s) { return UI_TEXT.test(s) || UI_TEXT_2.test(s) || UI_TEXT_3.test(s); }
 
     function buildTileNameMap() {
         const map = new Map();
@@ -228,7 +232,7 @@ def _speaker_tracking_script() -> str:
                 while (node = walker.nextNode()) {
                     const t = (node.textContent || '').trim();
                     if (t.length < 2 || t.length > 60) continue;
-                    if (UI_TEXT.test(t)) continue;
+                    if (isUIText(t)) continue;
                     if (/^\\(You\\)$/i.test(t)) continue;
                     const parent = node.parentElement;
                     if (parent && parent.closest('button')) continue;
@@ -240,7 +244,7 @@ def _speaker_tracking_script() -> str:
             // Strategy C: aria-label directly on the tile element
             if (!name) {
                 const tileLabel = (tile.getAttribute('aria-label') || '').trim();
-                if (tileLabel.length > 1 && tileLabel.length < 80 && !UI_TEXT.test(tileLabel)) {
+                if (tileLabel.length > 1 && tileLabel.length < 80 && !isUIText(tileLabel)) {
                     name = tileLabel.split(',')[0].trim();
                 }
             }

@@ -63,7 +63,7 @@ class TranscriptWriter:
         self._filepath = os.path.join(self.transcript_dir, self._filename)
 
         # Open file and write metadata line
-        self._file = open(self._filepath, "w", encoding="utf-8")
+        self._file = open(self._filepath, "w", encoding="utf-8")  # noqa: SIM115
         metadata = {
             "type": "metadata",
             "meeting_id": self.meeting_id,

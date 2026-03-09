@@ -13,6 +13,7 @@ from meeto.state_store import InMemoryMeetingLifecycleStore
 from meeto.state_store.base import MeetingLifecycleStore
 from meeto.state_store.status import MeetingLifecycleStatus
 from meeto.storage import ArtifactStorageAdapter, LocalStorageAdapter
+from meeto.stt.base import STTStreamingAdapter
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ async def run_meeting_worker(
     heartbeat_interval_seconds: int = DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     admission_timeout_seconds: float = DEFAULT_ADMISSION_TIMEOUT_SECONDS,
     storage_adapter: Optional[ArtifactStorageAdapter] = None,
+    stt_adapter: Optional[STTStreamingAdapter] = None,
 ) -> None:
     if state_store is None:
         state_store = InMemoryMeetingLifecycleStore()
@@ -67,6 +69,7 @@ async def run_meeting_worker(
         audio=config.audio,
         stt=config.stt,
         storage_adapter=storage_adapter,
+        stt_adapter=stt_adapter,
     )
 
     state_store.update_status(config.meeting_id, status=MeetingLifecycleStatus.RECORDING.value)

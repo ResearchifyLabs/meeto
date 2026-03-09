@@ -1,5 +1,4 @@
 -r requirements.txt
-black
-flake8
-autoflake
+ruff
+pre-commit
 build

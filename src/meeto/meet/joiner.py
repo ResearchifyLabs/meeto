@@ -49,7 +49,7 @@ async def _dismiss_consent_popup(
         'a:has-text("Continue without")',
         '[role="link"]:has-text("Continue without")',
         'button:has-text("Continue without microphone")',
-        'text=/Continue without/i',
+        "text=/Continue without/i",
     ]
 
     for selector in consent_selectors:
@@ -72,7 +72,7 @@ async def _dismiss_consent_popup(
         ).first
         if await dropdown_button.count() > 0:
             await dropdown_button.click()
-            menu_option = page.locator('div[role="menu"]').locator('text=/Continue without/i').first
+            menu_option = page.locator('div[role="menu"]').locator("text=/Continue without/i").first
             if await menu_option.count() > 0 and await menu_option.is_visible():
                 await menu_option.click()
                 consent_clicked = True
@@ -85,7 +85,7 @@ async def _dismiss_consent_popup(
                     )
 
     if not consent_clicked:
-        direct_text = page.locator('text=/Continue without microphone and camera/i').first
+        direct_text = page.locator("text=/Continue without microphone and camera/i").first
         if await direct_text.count() > 0 and await direct_text.is_visible():
             await direct_text.click()
             consent_clicked = True

@@ -1,5 +1,10 @@
 # meeto
 
+[![CI](https://github.com/ResearchifyLabs/meeto/actions/workflows/ci.yml/badge.svg)](https://github.com/ResearchifyLabs/meeto/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/meeto)](https://pypi.org/project/meeto/)
+[![Python](https://img.shields.io/pypi/pyversions/meeto)](https://pypi.org/project/meeto/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Open-source Google Meet bot. Join meetings, capture audio, and transcribe in real time using Playwright and pluggable STT providers.
 
 ## Installation

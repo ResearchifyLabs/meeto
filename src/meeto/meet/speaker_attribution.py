@@ -16,8 +16,8 @@ class SpeakerAttributionAdapter(abc.ABC):
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
         raise NotImplementedError
 
-    def stop(self) -> None:
-        pass
+    @abc.abstractmethod
+    def stop(self) -> None: ...
 
 
 class DOMSpeakerAttribution(SpeakerAttributionAdapter):
@@ -44,6 +44,9 @@ class STTDiarizationAttribution(SpeakerAttributionAdapter):
 
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
         return segment.speaker
+
+    def stop(self) -> None:
+        pass
 
 
 class HybridAttribution(SpeakerAttributionAdapter):
@@ -76,7 +79,7 @@ DIARIZATION_REGISTRY: dict[str, type[SpeakerAttributionAdapter]] = {
 def create_speaker_attribution(diarization: str, *, page: object = None) -> SpeakerAttributionAdapter:
     cls = DIARIZATION_REGISTRY.get(diarization)
     if not cls:
-        raise ValueError(f"Unknown diarization strategy: {diarization}. " f"Available: {list(DIARIZATION_REGISTRY)}")
+        raise ValueError(f"Unknown diarization strategy: {diarization}. Available: {list(DIARIZATION_REGISTRY)}")
     if cls in (DOMSpeakerAttribution, HybridAttribution):
         if page is None:
             raise ValueError(f"Diarization strategy '{diarization}' requires a Playwright page.")
