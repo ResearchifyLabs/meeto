@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meeto"
+version = "0.1.0"
+description = "Open-source Google Meet bot — join meetings, record audio, and transcribe in real time."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Shivansh Vishwakarma", email = "shivansh.vishwakarma@researchify.io"},
+]
+keywords = ["google-meet", "meeting-bot", "transcription", "stt", "playwright"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Conferencing",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "playwright>=1.40",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pre-commit",
+    "build",
+]
+
+[project.scripts]
+meeto-auth = "meeto.auth.generate_storage_state:main"
+
+[project.urls]
+Homepage = "https://github.com/ResearchifyLabs/meeto"
+Repository = "https://github.com/ResearchifyLabs/meeto"
+Issues = "https://github.com/ResearchifyLabs/meeto/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["UP007", "UP045"]
+
+[tool.ruff.format]
+docstring-code-format = true
