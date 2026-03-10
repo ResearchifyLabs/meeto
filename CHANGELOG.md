@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-03-10
+
 ### Added
 
 - Initial project structure with pluggable STT and storage adapters
