@@ -1,0 +1,52 @@
+---
+description: OSS workflow rules for meeto - branching, commits, changelogs, and PRs
+alwaysApply: true
+---
+
+# OSS Workflow for meeto
+
+## Branch Naming
+
+Always create a branch off `main`. Never commit directly to `main`.
+
+Format: `<prefix>/<short-name>`
+
+| Prefix | Use |
+|--------|-----|
+| `feature/` | New features |
+| `fix/` | Bug fixes |
+| `docs/` | Documentation only |
+| `chore/` | Tooling, CI, dependencies |
+
+## Before Committing
+
+1. Run `make lint` and `make test` — both must pass.
+2. Update `CHANGELOG.md` under `## [Unreleased]` with a concise entry.
+   - Use `### Added`, `### Changed`, `### Fixed`, `### Removed` subsections.
+3. Do NOT commit secrets, `.env` files, or `storage_state.json`.
+
+## Commit Messages
+
+- First line: imperative mood, max ~72 chars (e.g. "Add logging docs to README")
+- Optional body: explain *why*, not *what*
+- Use HEREDOC format for multi-line messages in shell
+
+## Pushing and PRs
+
+- Always push to a feature branch, never directly to `main`.
+- `main` has branch protection: requires PR review + CI checks.
+- Create PR with `gh pr create` including a `## What` and `## Checklist` section.
+- PR checklist must include: tests pass, lint passes, CHANGELOG updated.
+
+## Versioning
+
+- Version lives in `pyproject.toml` (`version = "x.y.z"`).
+- Follow SemVer. While `0.x.y`, minor bumps may include breaking changes.
+- After a release tag (`vX.Y.Z`), promote `[Unreleased]` to `[X.Y.Z] - date` in CHANGELOG and bump version for next dev cycle.
+
+## Release Flow
+
+1. PR to bump version + promote CHANGELOG entries.
+2. Merge to `main`.
+3. Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. `release.yml` auto-publishes to PyPI and creates GitHub Release.
