@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- Logging section in README with configuration examples
+- `NullHandler` on root `meeto` logger per Python library best practices
+
 ## [0.1.0] - 2026-03-10
 
 ### Added

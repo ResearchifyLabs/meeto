@@ -137,6 +137,22 @@ register_stt("my_provider", MySTTAdapter)
 
 Then set `SttConfig(provider="my_provider")`.
 
+## Logging
+
+meeto uses Python's standard `logging` module and does not configure any handlers itself. To see logs, configure logging in your application:
+
+```python
+import logging
+logging.basicConfig(level=logging.INFO)
+```
+
+For finer control:
+
+```python
+logging.getLogger("meeto").setLevel(logging.DEBUG)         # all meeto logs
+logging.getLogger("meeto.stt").setLevel(logging.WARNING)   # quieter STT logs
+```
+
 ## Architecture
 
 ```
