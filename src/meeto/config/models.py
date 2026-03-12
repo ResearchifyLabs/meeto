@@ -16,7 +16,7 @@ class AudioConfig:
 class SttConfig:
     provider: Optional[str] = None
     api_key: Optional[str] = None
-    diarization: str = "dom"
+    diarization: str = "correlation"
     extra: dict = field(default_factory=dict)
     connect_retries: int = 4
     connect_initial_delay_s: float = 2.0

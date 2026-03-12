@@ -24,7 +24,7 @@ class TestSttConfig(unittest.TestCase):
         cfg = SttConfig()
         self.assertIsNone(cfg.provider)
         self.assertIsNone(cfg.api_key)
-        self.assertEqual(cfg.diarization, "dom")
+        self.assertEqual(cfg.diarization, "correlation")
         self.assertEqual(cfg.extra, {})
         self.assertEqual(cfg.connect_retries, 4)
 
