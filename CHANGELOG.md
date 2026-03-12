@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-12
+
 ### Added
 
 - Correlation-based speaker attribution strategy that maps Deepgram diarization labels to real participant names via Google Meet DOM active-speaker indicator
