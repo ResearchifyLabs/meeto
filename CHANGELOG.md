@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+
+- Screenshots now saved under `screenshots/{meeting_id}/` instead of a shared `screenshots/` directory
+- Background screenshot uploads are flushed before process exit so uploads complete even on failure
+- Guest mode headless detection: set realistic user-agent, viewport, and extended stealth init script
+
 ## [0.3.0] - 2026-03-23
 
 ### Added

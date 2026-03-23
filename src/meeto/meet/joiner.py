@@ -14,6 +14,13 @@ _logger = logging.getLogger(__name__)
 _background_uploads: list[asyncio.Task] = []
 
 
+async def flush_background_uploads() -> None:
+    """Await all pending screenshot uploads so nothing is lost on exit."""
+    if _background_uploads:
+        await asyncio.gather(*list(_background_uploads), return_exceptions=True)
+        _background_uploads.clear()
+
+
 def _upload_screenshot_bg(local_path: str, storage: Optional[ArtifactStorageAdapter]) -> None:
     """Synchronous upload helper -- meant to run via asyncio.to_thread."""
     if not storage:
@@ -213,7 +220,17 @@ async def wait_for_admission(
     return False
 
 
-_STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+_STEALTH_INIT_SCRIPT = """\
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+window.chrome = window.chrome || {};
+window.chrome.runtime = window.chrome.runtime || {};
+"""
+
+_HEADLESS_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
 
 
 async def _fill_guest_name(
@@ -264,19 +281,28 @@ async def join_meet(
 
     p = await async_playwright().start()
     if guest_mode:
+        chrome_args = ["--disable-blink-features=AutomationControlled"]
+        if headless:
+            chrome_args.append("--window-size=1920,1080")
         browser = await p.chromium.launch(
             channel="chrome",
             headless=headless,
             slow_mo=slow_mo_ms,
-            args=["--disable-blink-features=AutomationControlled"],
+            args=chrome_args,
         )
     else:
         browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
-    context = (
-        await browser.new_context(storage_state=storage_state_path)
-        if storage_state_path
-        else await browser.new_context()
-    )
+
+    if storage_state_path:
+        context = await browser.new_context(storage_state=storage_state_path)
+    elif guest_mode and headless:
+        context = await browser.new_context(
+            user_agent=_HEADLESS_USER_AGENT,
+            viewport={"width": 1920, "height": 1080},
+        )
+    else:
+        context = await browser.new_context()
+
     if guest_mode:
         await context.add_init_script(_STEALTH_INIT_SCRIPT)
     page = await context.new_page()
