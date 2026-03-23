@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-03-23
+
 ### Added
 
 - `make docker-build` and `make docker-test` targets for local Docker-based integration testing
