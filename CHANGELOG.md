@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- `make docker-build` and `make docker-test` targets for local Docker-based integration testing
+
+### Changed
+
+- Guest mode uses minimal stealth: `navigator.webdriver` override and `--disable-blink-features=AutomationControlled` only
+- Camera permission no longer granted — bot joins without video (microphone-only permission for normal join flow)
+- Improved mic/camera toggle selectors with case-insensitive matching and explicit wait
+
 ## [0.3.1] - 2026-03-23
 
 ### Added
