@@ -31,5 +31,6 @@ def worker_config_from_env() -> WorkerConfig:
         join=JoinConfig(
             headless=os.environ.get("HEADLESS", "true").lower() == "true",
             storage_state_path=os.environ.get("MEET_STORAGE_STATE_PATH") or None,
+            bot_name=os.environ.get("BOT_NAME") or "Meeto",
         ),
     )

@@ -213,10 +213,44 @@ async def wait_for_admission(
     return False
 
 
+_STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+
+
+async def _fill_guest_name(
+    page,
+    bot_name: str,
+    screenshot_dir: Optional[str],
+    screenshot_storage: Optional[ArtifactStorageAdapter] = None,
+) -> None:
+    name_selectors = [
+        'input[aria-label="Your name"]',
+        'input[type="text"][aria-label*="name" i]',
+        'input[type="text"]',
+    ]
+    for selector in name_selectors:
+        input_el = page.locator(selector).first
+        try:
+            await input_el.wait_for(state="visible", timeout=10000)
+        except PlaywrightTimeoutError:
+            continue
+        await input_el.fill(bot_name)
+        _logger.info("GMEET: guest name set to %r via %s", bot_name, selector)
+        if screenshot_dir:
+            await _take_and_upload_screenshot(
+                page,
+                f"{screenshot_dir}/01b_after_name.png",
+                screenshot_storage,
+            )
+        return
+
+    _logger.warning("GMEET: could not find guest name input")
+
+
 async def join_meet(
     meet_url: str,
     *,
     storage_state_path: Optional[str] = None,
+    bot_name: Optional[str] = None,
     disable_mic: bool = True,
     disable_camera: bool = True,
     join_timeout_ms: int = 90000,
@@ -226,16 +260,27 @@ async def join_meet(
     storage_adapter: Optional[ArtifactStorageAdapter] = None,
 ) -> MeetSession:
     screenshot_storage = storage_adapter or LocalStorageAdapter()
+    guest_mode = bool(bot_name) and not storage_state_path
 
     p = await async_playwright().start()
-    browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
+    if guest_mode:
+        browser = await p.chromium.launch(
+            channel="chrome",
+            headless=headless,
+            slow_mo=slow_mo_ms,
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+    else:
+        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
     context = (
         await browser.new_context(storage_state=storage_state_path)
         if storage_state_path
         else await browser.new_context()
     )
+    if guest_mode:
+        await context.add_init_script(_STEALTH_INIT_SCRIPT)
     page = await context.new_page()
-    _logger.info("GMEET: goto %s", meet_url)
+    _logger.info("GMEET: goto %s (guest_mode=%s)", meet_url, guest_mode)
     await page.goto(meet_url, wait_until="domcontentloaded")
     if screenshot_dir:
         Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
@@ -244,6 +289,9 @@ async def join_meet(
             f"{screenshot_dir}/01_after_goto.png",
             screenshot_storage,
         )
+
+    if guest_mode:
+        await _fill_guest_name(page, bot_name, screenshot_dir, screenshot_storage)
 
     if disable_mic:
         mic_button = page.locator('button[aria-label*="microphone"]').first

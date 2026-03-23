@@ -40,9 +40,14 @@ class TestJoinConfig(unittest.TestCase):
         cfg = JoinConfig()
         self.assertTrue(cfg.headless)
         self.assertIsNone(cfg.storage_state_path)
+        self.assertEqual(cfg.bot_name, "Meeto")
         self.assertTrue(cfg.disable_mic)
         self.assertTrue(cfg.disable_camera)
         self.assertEqual(cfg.join_timeout_ms, 90000)
+
+    def test_bot_name_custom(self):
+        cfg = JoinConfig(bot_name="Meeto Bot")
+        self.assertEqual(cfg.bot_name, "Meeto Bot")
 
 
 class TestWorkerConfig(unittest.TestCase):

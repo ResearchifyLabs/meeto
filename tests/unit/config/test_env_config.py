@@ -50,6 +50,7 @@ class TestWorkerConfigFromEnv(unittest.TestCase):
         self.assertEqual(cfg.stt.connect_retries, 4)
         self.assertTrue(cfg.join.headless)
         self.assertIsNone(cfg.join.storage_state_path)
+        self.assertEqual(cfg.join.bot_name, "Meeto")
 
     def test_custom_values(self):
         cfg = self._call_with_env(
@@ -98,3 +99,11 @@ class TestWorkerConfigFromEnv(unittest.TestCase):
     def test_empty_storage_state_becomes_none(self):
         cfg = self._call_with_env({"MEET_STORAGE_STATE_PATH": ""})
         self.assertIsNone(cfg.join.storage_state_path)
+
+    def test_bot_name_from_env(self):
+        cfg = self._call_with_env({"BOT_NAME": "Meeto Bot"})
+        self.assertEqual(cfg.join.bot_name, "Meeto Bot")
+
+    def test_empty_bot_name_defaults_to_meeto(self):
+        cfg = self._call_with_env({"BOT_NAME": ""})
+        self.assertEqual(cfg.join.bot_name, "Meeto")

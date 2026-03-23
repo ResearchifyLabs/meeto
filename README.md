@@ -50,6 +50,36 @@ config = WorkerConfig(
 asyncio.run(run_meeting_worker(config))
 ```
 
+### Alternative: Join as Guest (No Google Account)
+
+You can join meetings without a Google account by setting `bot_name`. The bot enters the meeting as a guest and waits in the waiting room for the host to admit it.
+
+Guest mode uses Google Chrome (not Playwright's bundled Chromium). Install it via Playwright:
+
+```bash
+playwright install chrome
+```
+
+This installs Google Chrome for Testing, which lacks the automation markers that Google detects in Playwright's Chromium.
+
+```python
+config = WorkerConfig(
+    meeting_id="my-meeting-001",
+    meet_url="https://meet.google.com/abc-defg-hij",
+    join=JoinConfig(
+        bot_name="Meeto Bot",
+    ),
+)
+
+asyncio.run(run_meeting_worker(config))
+```
+
+Or via the CLI example:
+
+```bash
+PYTHONPATH=src python scripts/example.py https://meet.google.com/abc-defg-hij --bot-name "Meeto Bot"
+```
+
 Audio dumps are saved to `./audio/` and transcripts to `./transcripts/` by default.
 
 ## Configuration
