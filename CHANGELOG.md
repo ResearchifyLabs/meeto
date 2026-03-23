@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-23
+
 ### Added
 
 - Guest join mode: join meetings without a Google account by setting `bot_name` in `JoinConfig`
