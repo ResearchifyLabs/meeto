@@ -1,5 +1,7 @@
 import asyncio
+import contextlib
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -12,6 +14,11 @@ from meeto.storage import ArtifactStorageAdapter, LocalStorageAdapter
 _logger = logging.getLogger(__name__)
 
 _background_uploads: list[asyncio.Task] = []
+
+
+async def _flush_pending_uploads() -> None:
+    if _background_uploads:
+        await asyncio.gather(*list(_background_uploads), return_exceptions=True)
 
 
 def _upload_screenshot_bg(local_path: str, storage: Optional[ArtifactStorageAdapter]) -> None:
@@ -213,9 +220,6 @@ async def wait_for_admission(
     return False
 
 
-_STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
-
-
 async def _fill_guest_name(
     page,
     bot_name: str,
@@ -262,124 +266,150 @@ async def join_meet(
     screenshot_storage = storage_adapter or LocalStorageAdapter()
     guest_mode = bool(bot_name) and not storage_state_path
 
+    if guest_mode and headless:
+        display = os.environ.get("DISPLAY")
+        if display:
+            _logger.info("GMEET: virtual display detected (DISPLAY=%s), using headed mode for guest join", display)
+            headless = False
+        else:
+            _logger.warning(
+                "GMEET: headless guest mode may fail due to Google's bot detection. "
+                "For reliable guest join, use a virtual display (Xvfb) with DISPLAY env var."
+            )
+
     p = await async_playwright().start()
-    if guest_mode:
-        browser = await p.chromium.launch(
-            channel="chrome",
-            headless=headless,
-            slow_mo=slow_mo_ms,
-            args=["--disable-blink-features=AutomationControlled"],
-        )
-    else:
-        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
-    context = (
-        await browser.new_context(storage_state=storage_state_path)
-        if storage_state_path
-        else await browser.new_context()
-    )
-    if guest_mode:
-        await context.add_init_script(_STEALTH_INIT_SCRIPT)
-    page = await context.new_page()
-    _logger.info("GMEET: goto %s (guest_mode=%s)", meet_url, guest_mode)
-    await page.goto(meet_url, wait_until="domcontentloaded")
-    if screenshot_dir:
-        Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
-        await _take_and_upload_screenshot(
-            page,
-            f"{screenshot_dir}/01_after_goto.png",
-            screenshot_storage,
-        )
-
-    if guest_mode:
-        await _fill_guest_name(page, bot_name, screenshot_dir, screenshot_storage)
-
-    if disable_mic:
-        mic_button = page.locator('button[aria-label*="microphone"]').first
-        if await mic_button.count() > 0:
-            await mic_button.click()
-            _logger.info("GMEET: mic toggled")
-
-    if disable_camera:
-        cam_button = page.locator('button[aria-label*="camera"]').first
-        if await cam_button.count() > 0:
-            await cam_button.click()
-            _logger.info("GMEET: camera toggled")
-
-    await _dismiss_consent_with_retry(
-        page,
-        screenshot_dir,
-        screenshot_storage=screenshot_storage,
-    )
-
-    join_button = page.locator('button:has-text("Ask to join"), button:has-text("Join now")').first
-    joined = False
+    browser = None
+    context = None
+    page = None
     try:
-        await join_button.wait_for(state="visible", timeout=join_timeout_ms)
+        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
+        context_kwargs = {}
+        if storage_state_path:
+            context_kwargs["storage_state"] = storage_state_path
+        if guest_mode:
+            context_kwargs["viewport"] = {"width": 1280, "height": 720}
+            context_kwargs["locale"] = "en-US"
+            context_kwargs["permissions"] = ["microphone", "camera"]
+        context = await browser.new_context(**context_kwargs)
+        page = await context.new_page()
+        _logger.info("GMEET: goto %s (guest_mode=%s)", meet_url, guest_mode)
+        await page.goto(meet_url, wait_until="domcontentloaded")
         if screenshot_dir:
+            Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
             await _take_and_upload_screenshot(
                 page,
-                f"{screenshot_dir}/02_before_join.png",
+                f"{screenshot_dir}/01_after_goto.png",
                 screenshot_storage,
             )
-        _logger.info("GMEET: clicking join")
-        await join_button.click()
-        _logger.info("GMEET: join clicked")
-        if screenshot_dir:
-            await asyncio.sleep(2)
-            await _take_and_upload_screenshot(
-                page,
-                f"{screenshot_dir}/03_after_join.png",
-                screenshot_storage,
-            )
+
+        if guest_mode:
+            await _fill_guest_name(page, bot_name, screenshot_dir, screenshot_storage)
+
+        if disable_mic:
+            mic_button = page.locator('button[aria-label*="microphone"]').first
+            if await mic_button.count() > 0:
+                await mic_button.click()
+                _logger.info("GMEET: mic toggled")
+
+        if disable_camera:
+            cam_button = page.locator('button[aria-label*="camera"]').first
+            if await cam_button.count() > 0:
+                await cam_button.click()
+                _logger.info("GMEET: camera toggled")
+
         await _dismiss_consent_with_retry(
             page,
             screenshot_dir,
-            wait_for_dialog=True,
             screenshot_storage=screenshot_storage,
         )
-        joined = True
-    except Exception:
-        bbox = await join_button.bounding_box()
-        top_el = None
-        overlay_count = await page.locator('div[role="dialog"]').count()
-        material_overlay_count = await page.locator("div.uW2Fw-Sx9Kwc").count()
-        if bbox:
-            top_el = await page.evaluate(
-                """(p) => {
-                    const el = document.elementFromPoint(p.x, p.y);
-                    if (!el) return null;
-                    return {
-                        tag: el.tagName,
-                        id: el.id || null,
-                        className: (typeof el.className === 'string' ? el.className : String(el.className)) || null,
-                        role: el.getAttribute('role'),
-                        ariaLabel: el.getAttribute('aria-label')
-                    };
-                }""",
-                {
-                    "x": bbox["x"] + bbox["width"] / 2,
-                    "y": bbox["y"] + bbox["height"] / 2,
-                },
-            )
-        try:
-            top_class = (top_el or {}).get("className") if isinstance(top_el, dict) else None
-            if overlay_count > 0 or material_overlay_count > 0 or top_class == "uW2Fw-IE5DDf":
-                await join_button.click(force=True)
-                await _dismiss_consent_with_retry(
-                    page,
-                    screenshot_dir,
-                    wait_for_dialog=True,
-                    screenshot_storage=screenshot_storage,
-                )
-                joined = True
-        except Exception as err:
-            _logger.warning("GMEET: join force-click fallback failed err=%s", err)
-        if not joined:
-            raise
 
-    return MeetSession(
-        playwright=p,
-        browser=browser,
-        context=context,
-        page=page,
-    )
+        join_button = page.locator('button:has-text("Ask to join"), button:has-text("Join now")').first
+        joined = False
+        try:
+            await join_button.wait_for(state="visible", timeout=join_timeout_ms)
+            if screenshot_dir:
+                await _take_and_upload_screenshot(
+                    page,
+                    f"{screenshot_dir}/02_before_join.png",
+                    screenshot_storage,
+                )
+            _logger.info("GMEET: clicking join")
+            await join_button.click()
+            _logger.info("GMEET: join clicked")
+            if screenshot_dir:
+                await asyncio.sleep(2)
+                await _take_and_upload_screenshot(
+                    page,
+                    f"{screenshot_dir}/03_after_join.png",
+                    screenshot_storage,
+                )
+            await _dismiss_consent_with_retry(
+                page,
+                screenshot_dir,
+                wait_for_dialog=True,
+                screenshot_storage=screenshot_storage,
+            )
+            joined = True
+        except Exception:
+            bbox = await join_button.bounding_box()
+            top_el = None
+            overlay_count = await page.locator('div[role="dialog"]').count()
+            material_overlay_count = await page.locator("div.uW2Fw-Sx9Kwc").count()
+            if bbox:
+                top_el = await page.evaluate(
+                    """(p) => {
+                        const el = document.elementFromPoint(p.x, p.y);
+                        if (!el) return null;
+                        return {
+                            tag: el.tagName,
+                            id: el.id || null,
+                            className: (typeof el.className === 'string' ? el.className : String(el.className)) || null,
+                            role: el.getAttribute('role'),
+                            ariaLabel: el.getAttribute('aria-label')
+                        };
+                    }""",
+                    {
+                        "x": bbox["x"] + bbox["width"] / 2,
+                        "y": bbox["y"] + bbox["height"] / 2,
+                    },
+                )
+            try:
+                top_class = (top_el or {}).get("className") if isinstance(top_el, dict) else None
+                if overlay_count > 0 or material_overlay_count > 0 or top_class == "uW2Fw-IE5DDf":
+                    await join_button.click(force=True)
+                    await _dismiss_consent_with_retry(
+                        page,
+                        screenshot_dir,
+                        wait_for_dialog=True,
+                        screenshot_storage=screenshot_storage,
+                    )
+                    joined = True
+            except Exception as err:
+                _logger.warning("GMEET: join force-click fallback failed err=%s", err)
+            if not joined:
+                raise
+
+        return MeetSession(
+            playwright=p,
+            browser=browser,
+            context=context,
+            page=page,
+        )
+    except Exception:
+        if page and screenshot_dir:
+            try:
+                Path(screenshot_dir).mkdir(parents=True, exist_ok=True)
+                await _take_and_upload_screenshot(page, f"{screenshot_dir}/error.png", screenshot_storage)
+            except Exception:
+                _logger.debug("GMEET: failed to take error screenshot")
+        if context:
+            with contextlib.suppress(Exception):
+                await context.close()
+        if browser:
+            with contextlib.suppress(Exception):
+                await browser.close()
+        with contextlib.suppress(Exception):
+            await p.stop()
+        raise
+    finally:
+        await _flush_pending_uploads()

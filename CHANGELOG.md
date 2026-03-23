@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- Xvfb auto-detection: guest mode automatically switches to headed browser when `DISPLAY` env var is set (virtual display), bypassing Google's headless bot detection
+
+### Changed
+
+- Guest mode now uses Chromium (instead of system Chrome) with fake media device streams
+- Screenshots are now saved under `{screenshot_dir}/{meeting_id}/` so each meeting has its own folder
+- Browser context for guest mode now sets viewport, locale, and microphone/camera permissions
+- `Dockerfile.test` installs Chromium instead of Chrome to match library browser choice
+
+### Removed
+
+- Stealth init scripts (navigator.webdriver, plugins, WebGL, userAgentData spoofing) — ineffective against Google's server-side bot detection
+- Stealth launch args (`--disable-blink-features=AutomationControlled`, `--no-first-run`, `--no-default-browser-check`)
+
+### Fixed
+
+- Screenshots not uploading when `join_meet` encounters an error — added error screenshot capture and `_flush_pending_uploads` in `finally` block
+- Browser/context/playwright resource leak when `join_meet` raises an exception
+- `run_meeting_worker` now sets state to `FAILED` if `join_meet` fails (previously stayed stuck on `JOINING`)
+
 ## [0.3.0] - 2026-03-23
 
 ### Added

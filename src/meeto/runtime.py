@@ -39,13 +39,31 @@ async def run_meeting_worker(
     state_store.update_status(config.meeting_id, status=MeetingLifecycleStatus.JOINING.value)
     _logger.info("GMEET JOB: joining meeting %s at %s", config.meeting_id, config.meet_url)
 
-    session = await join_meet(
-        config.meet_url,
-        headless=config.join.headless,
-        storage_state_path=config.join.storage_state_path,
-        bot_name=config.join.bot_name,
-        storage_adapter=storage_adapter,
-    )
+    screenshot_dir = config.join.screenshot_dir
+    if screenshot_dir:
+        safe_id = config.meeting_id.replace("/", " ").replace("\\", "_")
+        screenshot_dir = f"{screenshot_dir}/{safe_id}"
+
+    try:
+        session = await join_meet(
+            config.meet_url,
+            headless=config.join.headless,
+            storage_state_path=config.join.storage_state_path,
+            bot_name=config.join.bot_name,
+            disable_mic=config.join.disable_mic,
+            disable_camera=config.join.disable_camera,
+            join_timeout_ms=config.join.join_timeout_ms,
+            screenshot_dir=screenshot_dir,
+            storage_adapter=storage_adapter,
+        )
+    except Exception:
+        _logger.exception("GMEET JOB: failed to join meeting %s", config.meeting_id)
+        state_store.update_status(
+            config.meeting_id,
+            status=MeetingLifecycleStatus.FAILED.value,
+            ended_at=time.time(),
+        )
+        raise
 
     state_store.update_status(
         config.meeting_id,

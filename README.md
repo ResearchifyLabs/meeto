@@ -16,9 +16,41 @@ playwright install chromium
 
 ## Quick Start
 
-### 1. Generate a Google login session
+The simplest way to use meeto is guest mode — no Google account needed. The bot joins the meeting as a guest and waits for the host to admit it.
 
-The bot needs a browser session to join meetings as a Google account.
+```python
+import asyncio
+from meeto import run_meeting_worker
+from meeto.config import WorkerConfig, JoinConfig, SttConfig
+
+config = WorkerConfig(
+    meeting_id="my-meeting-001",
+    meet_url="https://meet.google.com/abc-defg-hij",
+    join=JoinConfig(
+        bot_name="Meeto Bot",
+    ),
+    stt=SttConfig(
+        provider="deepgram",
+        api_key="YOUR_DEEPGRAM_API_KEY",
+    ),
+)
+
+asyncio.run(run_meeting_worker(config))
+```
+
+Or via the CLI example:
+
+```bash
+PYTHONPATH=src python scripts/example.py https://meet.google.com/abc-defg-hij --bot-name "Meeto Bot" --no-headless
+```
+
+Audio dumps are saved to `./audio/` and transcripts to `./transcripts/` by default.
+
+> **Note:** Guest mode requires a display — see [Deployment](#deployment) for running on servers and containers.
+
+## Authenticated Mode
+
+To join meetings as a Google account (no waiting room), generate a browser session first:
 
 ```bash
 meeto-auth --output storage_state.json
@@ -26,13 +58,7 @@ meeto-auth --output storage_state.json
 
 This opens a Chromium window. Log in to Google, then press Enter in the terminal.
 
-### 2. Run the bot
-
 ```python
-import asyncio
-from meeto import run_meeting_worker
-from meeto.config import WorkerConfig, JoinConfig, SttConfig
-
 config = WorkerConfig(
     meeting_id="my-meeting-001",
     meet_url="https://meet.google.com/abc-defg-hij",
@@ -50,50 +76,49 @@ config = WorkerConfig(
 asyncio.run(run_meeting_worker(config))
 ```
 
-### Alternative: Join as Guest (No Google Account)
+## Deployment
 
-You can join meetings without a Google account by setting `bot_name`. The bot enters the meeting as a guest and waits in the waiting room for the host to admit it.
+### Guest Mode on Servers / Containers
 
-Guest mode uses Google Chrome (not Playwright's bundled Chromium). Install it via Playwright:
+Google blocks headless browsers from joining meetings via server-side bot detection. To run guest mode in a headless environment, use [Xvfb](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml) to provide a virtual display. meeto automatically detects the `DISPLAY` environment variable and switches to headed mode.
+
+**Quick option** — wrap your process with `xvfb-run`:
 
 ```bash
-playwright install chrome
+apt-get install -y xvfb
+xvfb-run python your_bot_script.py
 ```
 
-This installs Google Chrome for Testing, which lacks the automation markers that Google detects in Playwright's Chromium.
+**Docker** — start Xvfb in your entrypoint:
+
+```dockerfile
+RUN apt-get update && apt-get install -y xvfb
+ENV DISPLAY=:99
+```
+
+```bash
+#!/bin/bash
+Xvfb :99 -screen 0 1920x1080x24 &
+sleep 1
+exec python your_bot_script.py
+```
+
+### Authenticated Mode on Servers / Containers
+
+Authenticated mode uses a saved Google session (`storage_state.json`), which Google trusts as a real user. This means it works with `headless=True` out of the box — no Xvfb, no virtual display, no extra system dependencies.
 
 ```python
 config = WorkerConfig(
     meeting_id="my-meeting-001",
     meet_url="https://meet.google.com/abc-defg-hij",
     join=JoinConfig(
-        bot_name="Meeto Bot",
+        headless=True,
+        storage_state_path="storage_state.json",
     ),
 )
-
-asyncio.run(run_meeting_worker(config))
 ```
 
-Or via the CLI example:
-
-```bash
-PYTHONPATH=src python scripts/example.py https://meet.google.com/abc-defg-hij --bot-name "Meeto Bot"
-```
-
-Audio dumps are saved to `./audio/` and transcripts to `./transcripts/` by default.
-
-## Configuration
-
-### WorkerConfig
-
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `meeting_id` | `str` | required | Unique identifier for the meeting |
-| `meet_url` | `str` | required | Google Meet URL |
-| `duration_seconds` | `int` | `3600` | Max recording duration |
-| `audio` | `AudioConfig` | defaults | Audio capture settings |
-| `stt` | `SttConfig` | defaults | Speech-to-text settings |
-| `join` | `JoinConfig` | defaults | Browser join settings |
+Generate `storage_state.json` once on a machine with a display (your laptop), then copy it to the server or bake it into your deployment secrets.
 
 ### Environment Variable Config
 
@@ -105,9 +130,22 @@ from meeto.config import worker_config_from_env
 config = worker_config_from_env()
 ```
 
-Required env vars: `MEETING_ID`, `MEET_URL`. See `meeto/config/env_config.py` for the full list.
+Required: `MEETING_ID`, `MEET_URL`. See `meeto/config/env_config.py` for the full list.
 
-## Custom Storage Adapter
+## Configuration
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `meeting_id` | `str` | required | Unique identifier for the meeting |
+| `meet_url` | `str` | required | Google Meet URL |
+| `duration_seconds` | `int` | `3600` | Max recording duration |
+| `audio` | `AudioConfig` | defaults | Audio capture settings |
+| `stt` | `SttConfig` | defaults | Speech-to-text settings |
+| `join` | `JoinConfig` | defaults | Browser join settings |
+
+## Extending
+
+### Custom Storage Adapter
 
 By default, artifacts stay local. To upload to cloud storage (S3, GCS, etc.), implement `ArtifactStorageAdapter`:
 
@@ -116,17 +154,12 @@ from meeto.storage import ArtifactStorageAdapter
 
 class S3StorageAdapter(ArtifactStorageAdapter):
     def upload(self, local_path, content_type="application/octet-stream"):
-        # Upload to S3 and return the remote URI
         return f"s3://my-bucket/{local_path}"
-```
 
-Pass it to the runtime:
-
-```python
 asyncio.run(run_meeting_worker(config, storage_adapter=S3StorageAdapter()))
 ```
 
-## Custom Meeting State Store
+### Custom Meeting State Store
 
 By default, meeting lifecycle state is kept in memory. To persist state (e.g. to a database), implement `MeetingLifecycleStore`:
 
@@ -135,21 +168,15 @@ from meeto.state_store import MeetingLifecycleStore
 
 class PostgresMeetingStore(MeetingLifecycleStore):
     def update_status(self, meeting_id, *, status, ended_at=None, transcription_path=None):
-        # Persist to your database
         ...
 
     def heartbeat(self, meeting_id):
-        # Update heartbeat timestamp
         ...
-```
 
-Pass it to the runtime:
-
-```python
 asyncio.run(run_meeting_worker(config, state_store=PostgresMeetingStore()))
 ```
 
-## Custom STT Provider
+### Custom STT Provider
 
 Meeto ships with Deepgram support. To add your own STT provider, implement `STTStreamingAdapter`:
 
@@ -198,6 +225,10 @@ meeto/
 ├── state_store/            # Meeting lifecycle state management
 └── stt/                    # STT adapter interface + Deepgram implementation
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR guidelines.
 
 ## License
 
