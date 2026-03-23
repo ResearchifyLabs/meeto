@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- Guest join mode: join meetings without a Google account by setting `bot_name` in `JoinConfig`
+- Anti-bot-detection: guest mode uses system Chrome (`channel="chrome"`) with stealth init scripts to bypass Google's automation blocking
+- `BOT_NAME` environment variable support in `worker_config_from_env()`
+
+### Changed
+
+- Default `bot_name` is now `"Meeto"` (previously no default; guest mode was opt-in)
+- `scripts/example.py` defaults to guest mode (`--storage-state` defaults to `None`, `--bot-name` defaults to `"Meeto"`)
+
 ## [0.2.0] - 2026-03-12
 
 ### Added

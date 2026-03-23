@@ -44,7 +44,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--meeting-id", default=None, help="Custom meeting ID (default: auto-generated UUID)")
     p.add_argument("--duration", type=int, default=3600, help="Max recording duration in seconds (default: 3600)")
     p.add_argument("--no-headless", action="store_true", help="Show the browser window")
-    p.add_argument("--storage-state", default="storage_state.json", help="Path to Playwright storage state JSON")
+    p.add_argument("--storage-state", default=None, help="Path to Playwright storage state JSON (overrides guest mode)")
+    p.add_argument("--bot-name", default="Meeto", help="Guest display name (default: Meeto)")
     p.add_argument("--stt-provider", default=None, help="STT provider (e.g. 'deepgram')")
     p.add_argument("--stt-api-key", default=stt_api_key, help="STT API key")
     p.add_argument("--diarization", default="correlation", help="Diarization strategy (default: correlation)")
@@ -74,6 +75,7 @@ def main() -> int:
         join=JoinConfig(
             headless=not args.no_headless,
             storage_state_path=args.storage_state,
+            bot_name=args.bot_name,
         ),
     )
 

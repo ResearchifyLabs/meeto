@@ -27,6 +27,7 @@ class SttConfig:
 class JoinConfig:
     headless: bool = True
     storage_state_path: Optional[str] = None
+    bot_name: str = "Meeto"
     disable_mic: bool = True
     disable_camera: bool = True
     join_timeout_ms: int = 90000

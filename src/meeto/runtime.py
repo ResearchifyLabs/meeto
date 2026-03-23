@@ -43,6 +43,7 @@ async def run_meeting_worker(
         config.meet_url,
         headless=config.join.headless,
         storage_state_path=config.join.storage_state_path,
+        bot_name=config.join.bot_name,
         storage_adapter=storage_adapter,
     )
 
