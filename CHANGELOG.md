@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-23
+
 ### Added
 
 - Xvfb auto-detection: guest mode automatically switches to headed browser when `DISPLAY` env var is set (virtual display), bypassing Google's headless bot detection
