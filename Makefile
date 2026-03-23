@@ -2,7 +2,9 @@ PYTHON ?= python3
 VENV := .venv
 BIN := $(VENV)/bin
 
-.PHONY: setup lint format test clean build pre-commit
+MEET_URL ?= https://meet.google.com/xxx-yyyy-zzz
+
+.PHONY: setup lint format test clean build pre-commit docker-build docker-test
 
 help:
 	@echo "Available commands:"
@@ -13,6 +15,8 @@ help:
 	@echo "  clean       Clean up temporary files"
 	@echo "  build       Build the package"
 	@echo "  pre-commit  Install pre-commit hooks"
+	@echo "  docker-build Build the Docker test image"
+	@echo "  docker-test  Run join flow in Docker (MEET_URL=...)"
 	@echo "  help        Show this help message"
 
 setup:
@@ -45,3 +49,10 @@ pre-commit:
 
 build: clean
 	$(BIN)/python -m build
+
+docker-build:
+	docker build -f Dockerfile.test -t meeto-test .
+
+docker-test: docker-build
+	docker run --rm meeto-test \
+		python3 scripts/example.py $(MEET_URL) --bot-name "Meeto" --duration 10

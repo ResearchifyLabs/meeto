@@ -220,6 +220,15 @@ async def wait_for_admission(
     return False
 
 
+_STEALTH_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+
+_GUEST_LAUNCH_ARGS = [
+    "--disable-blink-features=AutomationControlled",
+    "--use-fake-device-for-media-stream",
+    "--use-fake-ui-for-media-stream",
+]
+
+
 async def _fill_guest_name(
     page,
     bot_name: str,
@@ -282,15 +291,20 @@ async def join_meet(
     context = None
     page = None
     try:
-        browser = await p.chromium.launch(headless=headless, slow_mo=slow_mo_ms)
+        launch_kwargs = {"headless": headless, "slow_mo": slow_mo_ms}
+        if guest_mode:
+            launch_kwargs["args"] = _GUEST_LAUNCH_ARGS
+        browser = await p.chromium.launch(**launch_kwargs)
         context_kwargs = {}
         if storage_state_path:
             context_kwargs["storage_state"] = storage_state_path
         if guest_mode:
             context_kwargs["viewport"] = {"width": 1280, "height": 720}
             context_kwargs["locale"] = "en-US"
-            context_kwargs["permissions"] = ["microphone", "camera"]
+            context_kwargs["permissions"] = ["microphone"]
         context = await browser.new_context(**context_kwargs)
+        if guest_mode:
+            await context.add_init_script(_STEALTH_INIT_SCRIPT)
         page = await context.new_page()
         _logger.info("GMEET: goto %s (guest_mode=%s)", meet_url, guest_mode)
         await page.goto(meet_url, wait_until="domcontentloaded")
@@ -306,16 +320,24 @@ async def join_meet(
             await _fill_guest_name(page, bot_name, screenshot_dir, screenshot_storage)
 
         if disable_mic:
-            mic_button = page.locator('button[aria-label*="microphone"]').first
-            if await mic_button.count() > 0:
+            mic_button = page.locator(
+                'button[aria-label*="microphone" i], button[aria-label*="mic" i], button[data-is-muted]'
+            ).first
+            try:
+                await mic_button.wait_for(state="visible", timeout=5000)
                 await mic_button.click()
                 _logger.info("GMEET: mic toggled")
+            except PlaywrightTimeoutError:
+                _logger.debug("GMEET: mic button not found, skipping")
 
         if disable_camera:
-            cam_button = page.locator('button[aria-label*="camera"]').first
-            if await cam_button.count() > 0:
+            cam_button = page.locator('button[aria-label*="camera" i], button[aria-label*="video" i]').first
+            try:
+                await cam_button.wait_for(state="visible", timeout=5000)
                 await cam_button.click()
                 _logger.info("GMEET: camera toggled")
+            except PlaywrightTimeoutError:
+                _logger.debug("GMEET: camera button not found, skipping")
 
         await _dismiss_consent_with_retry(
             page,
