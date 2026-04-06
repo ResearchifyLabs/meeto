@@ -5,7 +5,10 @@
 [![Python](https://img.shields.io/pypi/pyversions/meeto)](https://pypi.org/project/meeto/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Open-source Google Meet bot. Join meetings, capture audio, and transcribe in real time using Playwright and pluggable STT providers.
+Open-source meeting bot framework. Join meetings, capture audio, and transcribe in real time with pluggable STT providers.
+
+**Currently supported:** Google Meet
+**Coming soon:** Zoom, Microsoft Teams, and more — [contributions welcome](#contributing)!
 
 ## Installation
 
@@ -132,16 +135,26 @@ config = worker_config_from_env()
 
 Required: `MEETING_ID`, `MEET_URL`. See `meeto/config/env_config.py` for the full list.
 
+## Supported Platforms
+
+| Platform | Status |
+|---|---|
+| Google Meet | Supported |
+| Zoom | Planned |
+| Microsoft Teams | Planned |
+
+We're actively working on expanding platform support. If you'd like to help add a new meeting platform, see [Contributing](#contributing) — we'd love the collaboration.
+
 ## Configuration
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `meeting_id` | `str` | required | Unique identifier for the meeting |
-| `meet_url` | `str` | required | Google Meet URL |
+| `meet_url` | `str` | required | Meeting URL (currently Google Meet) |
 | `duration_seconds` | `int` | `3600` | Max recording duration |
 | `audio` | `AudioConfig` | defaults | Audio capture settings |
 | `stt` | `SttConfig` | defaults | Speech-to-text settings |
-| `join` | `JoinConfig` | defaults | Browser join settings |
+| `join` | `JoinConfig` | defaults | Meeting join settings |
 
 ## Extending
 
@@ -221,12 +234,22 @@ meeto/
 ├── transcript_writer.py    # JSONL transcript writer
 ├── auth/                   # Google login session generator
 ├── config/                 # Typed config models + env var parser
-├── meet/                   # Playwright-based meeting join, end detection, speaker tracking
+├── meet/                   # Google Meet: join, end detection, speaker tracking
 ├── state_store/            # Meeting lifecycle state management
 └── stt/                    # STT adapter interface + Deepgram implementation
 ```
 
+Platform-specific logic lives under its own package (`meet/` for Google Meet). Adding a new platform means adding a new package (e.g. `zoom/`, `teams/`) that implements the same join, audio capture, and end detection interfaces. Each platform adapter can use whatever technology makes sense — browser automation, native APIs, SDKs, or WebSocket streams.
+
+## Roadmap
+
+- **Multi-platform support** — Zoom and Microsoft Teams adapters, using the best approach per platform (native SDKs, APIs, or browser automation)
+- **Platform adapter interface** — formalize the join/capture/end-detection contract so new platforms can be added independently
+- **Plugin system** — allow third-party platform adapters to be installed as separate packages
+
 ## Contributing
+
+We're building meeto as a community-driven meeting bot framework and welcome contributions of all kinds — especially new platform support.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR guidelines.
 

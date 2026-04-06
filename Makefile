@@ -4,7 +4,7 @@ BIN := $(VENV)/bin
 
 MEET_URL ?= https://meet.google.com/xxx-yyyy-zzz
 
-.PHONY: setup lint format test clean build pre-commit docker-build docker-test
+.PHONY: setup lint format test test-cov clean build pre-commit docker-build docker-test
 
 help:
 	@echo "Available commands:"
@@ -37,6 +37,11 @@ format:
 
 test:
 	PYTHONPATH=src $(BIN)/python -m unittest discover -s tests -p "test_*.py" -v
+
+test-cov:
+	PYTHONPATH=src $(BIN)/coverage run --source=src -m unittest discover -s tests -p "test_*.py" -v
+	$(BIN)/coverage report -m
+	$(BIN)/coverage html
 
 clean:
 	rm -rf build/ dist/ *.egg-info src/*.egg-info

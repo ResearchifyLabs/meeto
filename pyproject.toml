@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "meeto"
 version = "0.3.2"
-description = "Google Meet bot for meeting transcription, recording, and speech-to-text. Join meetings automatically, capture audio, and transcribe in real time with speaker attribution."
+description = "Open-source meeting bot framework. Join meetings, capture audio, and transcribe in real time with speaker attribution. Currently supports Google Meet, with more platforms coming soon."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -16,7 +16,6 @@ maintainers = [
     {name = "Shivansh Vishwakarma", email = "shivansh.vishwakarma@researchify.io"},
 ]
 keywords = [
-    "google-meet",
     "meeting-bot",
     "transcription",
     "speech-to-text",
@@ -25,7 +24,9 @@ keywords = [
     "stt",
     "diarization",
     "speaker-attribution",
-    "playwright",
+    "google-meet",
+    "zoom",
+    "microsoft-teams",
     "automation",
 ]
 classifiers = [
