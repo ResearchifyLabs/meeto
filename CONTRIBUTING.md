@@ -57,6 +57,23 @@ class MyStorageAdapter(ArtifactStorageAdapter):
         ...
 ```
 
+## Adding a New Meeting Platform
+
+We'd love help adding support for Zoom, Microsoft Teams, or other platforms. Here's the general approach:
+
+1. Create a new package under `src/meeto/` (e.g. `src/meeto/zoom/`)
+2. Implement the core meeting lifecycle:
+   - **Joiner** — connect to the meeting and handle lobby/admission
+   - **Audio capture** — obtain the meeting's audio stream
+   - **End detection** — detect when the meeting ends or the bot is removed
+   - **Speaker tracking** — attribute audio segments to participants (if available)
+3. Use whatever technology fits the platform best — native SDKs, REST/WebSocket APIs, or browser automation
+4. Look at `src/meeto/meet/` as the reference implementation (it uses Playwright, but that's specific to Google Meet)
+5. Add tests under `tests/unit/<platform>/`
+6. Open a PR — we're happy to iterate together
+
+If you're considering adding a new platform, open an issue first so we can coordinate and share context.
+
 ## Pull Requests
 
 1. Branch off `main` using `feature/<name>`, `fix/<name>`, or `docs/<name>`

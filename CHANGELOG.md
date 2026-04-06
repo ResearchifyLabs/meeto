@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Changed
+
+- Repositioned meeto as a multi-platform meeting bot framework; Google Meet is the first supported platform with Zoom and Microsoft Teams planned
+- Platform adapters are technology-agnostic — each platform can use native SDKs, APIs, or browser automation, whatever works best
+- Updated README, pyproject.toml, and CONTRIBUTING.md to reflect multi-platform direction and invite collaboration
+
 ## [0.3.2] - 2026-03-23
 
 ### Added
