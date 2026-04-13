@@ -3,6 +3,15 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# generated
+generated/
+audio/
+screenshots/
+speaker_events/
+streams/
+manifests/
+out.wav
+
 # C extensions
 *.so
 

@@ -3,13 +3,18 @@
 import asyncio
 import base64
 import logging
+import os
+import time
 from dataclasses import dataclass
 from typing import Optional
 
 from meeto.audio_writer import AudioDumpWriter
 from meeto.config.models import AudioConfig, SttConfig
+from meeto.manifest_writer import ManifestWriter
 from meeto.meet.joiner import MeetSession
+from meeto.meet.participant_scraper import ParticipantScraper
 from meeto.meet.speaker_attribution import SpeakerAttributionAdapter, create_speaker_attribution
+from meeto.speaker_event_writer import SpeakerEventWriter
 from meeto.storage import ArtifactStorageAdapter, LocalStorageAdapter
 from meeto.stt.base import STTStreamingAdapter
 from meeto.stt.factory import create_stt_adapter
@@ -248,9 +253,12 @@ class PipelineSession:
     stt_adapter: Optional[STTStreamingAdapter] = None
     speaker_attribution: Optional[SpeakerAttributionAdapter] = None
     transcript_writer: Optional[TranscriptWriter] = None
+    speaker_event_writer: Optional[SpeakerEventWriter] = None
+    participant_scraper: Optional[ParticipantScraper] = None
+    manifest_writer: Optional[ManifestWriter] = None
 
     async def close(self) -> dict:
-        close_result = {"audio": None, "transcript": None}
+        close_result = {"audio": None, "transcript": None, "speaker_events": None, "manifest": None}
         if self.page:
             try:
                 await self.page.evaluate(
@@ -274,6 +282,21 @@ class PipelineSession:
             )
         if self.transcript_writer:
             close_result["transcript"] = self.transcript_writer.close()
+        if self.speaker_event_writer:
+            close_result["speaker_events"] = self.speaker_event_writer.close()
+        if self.participant_scraper:
+            self.participant_scraper.stop()
+        if self.manifest_writer:
+            if self.participant_scraper:
+                for pid, info in self.participant_scraper.get_participants().items():
+                    self.manifest_writer.add_participant(
+                        pid,
+                        display_name=info.display_name,
+                        email=info.email,
+                        avatar_url=info.avatar_url,
+                        first_seen_at=info.first_seen_at,
+                    )
+            close_result["manifest"] = self.manifest_writer.close()
         return close_result
 
 
@@ -283,6 +306,7 @@ async def setup_pipeline(
     meeting_id: str,
     audio: AudioConfig = None,
     stt: SttConfig = None,
+    output_dir: str = "./generated",
     storage_adapter: Optional[ArtifactStorageAdapter] = None,
     stt_adapter: Optional[STTStreamingAdapter] = None,
 ) -> PipelineSession:
@@ -292,6 +316,9 @@ async def setup_pipeline(
         stt = SttConfig()
     if storage_adapter is None:
         storage_adapter = LocalStorageAdapter()
+
+    safe_meeting_id = meeting_id.replace("/", "_").replace("\\", "_")
+    meeting_base_dir = os.path.join(output_dir, safe_meeting_id)
 
     page = session.page
     audio_writer = None
@@ -304,6 +331,7 @@ async def setup_pipeline(
                 meeting_id=meeting_id,
                 sample_rate=audio.sample_rate,
                 channels=1,
+                audio_dir=os.path.join(meeting_base_dir, "audio"),
                 storage_adapter=storage_adapter,
             )
             audio_writer.open()
@@ -312,19 +340,62 @@ async def setup_pipeline(
             _logger.exception("GMEET: failed to initialize audio dump writer")
             audio_writer = None
 
-    if stt_adapter or stt.provider:
+    # --- Speaker events (DOM-based active speaker detection) ---
+    speaker_event_writer = None
+
+    if stt.diarization and stt.diarization != "stt_native":
+        try:
+            speaker_event_writer = SpeakerEventWriter(
+                meeting_id=meeting_id,
+                speaker_events_dir=os.path.join(meeting_base_dir, "speaker_events"),
+                storage_adapter=storage_adapter,
+            )
+            speaker_event_writer.open()
+        except Exception:
+            _logger.exception("GMEET: failed to start speaker event writer")
+            speaker_event_writer = None
+
+        def on_speaker_change(speaker_name, is_speaking):
+            if speaker_event_writer:
+                speaker_event_writer.write_event(speaker_name, time.time(), is_speaking)
+
         try:
             speaker_attribution = create_speaker_attribution(stt.diarization, page=page)
-            await speaker_attribution.start()
+            await speaker_attribution.start(on_speaker_change=on_speaker_change)
         except Exception:
             _logger.exception("GMEET: failed to start speaker attribution (%s)", stt.diarization)
             speaker_attribution = None
 
+    # --- Participant scraper + manifest (always enabled) ---
+    participant_scraper = None
+    manifest_writer = None
+
+    try:
+        participant_scraper = ParticipantScraper(page=page)
+        await participant_scraper.start()
+    except Exception:
+        _logger.exception("GMEET: failed to start participant scraper")
+        participant_scraper = None
+
+    try:
+        manifest_writer = ManifestWriter(
+            meeting_id=meeting_id,
+            manifests_dir=os.path.join(meeting_base_dir, "manifests"),
+            storage_adapter=storage_adapter,
+        )
+        manifest_writer.open()
+    except Exception:
+        _logger.exception("GMEET: failed to start manifest writer")
+        manifest_writer = None
+
+    # --- STT (optional) ---
+    if stt_adapter or stt.provider:
         try:
             transcript_writer = TranscriptWriter(
                 meeting_id=meeting_id,
                 sample_rate=audio.sample_rate,
                 stt_provider=stt.provider,
+                transcript_dir=os.path.join(meeting_base_dir, "transcripts"),
                 storage_adapter=storage_adapter,
             )
             transcript_writer.open()
@@ -365,7 +436,8 @@ async def setup_pipeline(
             _logger.exception("GMEET: failed to start STT (%s)", stt.provider)
             stt_adapter = None
 
-    if audio_writer or stt_adapter:
+    # --- Audio capture JS ---
+    if audio_writer or stt_adapter or speaker_attribution:
         try:
 
             async def handle_audio_chunk(source, payload):
@@ -402,4 +474,7 @@ async def setup_pipeline(
         stt_adapter=stt_adapter,
         speaker_attribution=speaker_attribution,
         transcript_writer=transcript_writer,
+        speaker_event_writer=speaker_event_writer,
+        participant_scraper=participant_scraper,
+        manifest_writer=manifest_writer,
     )

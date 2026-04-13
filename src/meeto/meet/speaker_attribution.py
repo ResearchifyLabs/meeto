@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 class SpeakerAttributionAdapter(abc.ABC):
     @abc.abstractmethod
-    async def start(self) -> None:
+    async def start(self, on_speaker_change=None) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -29,8 +29,8 @@ class DOMSpeakerAttribution(SpeakerAttributionAdapter):
     def __init__(self, page: object) -> None:
         self._tracker = SpeakerTracker(page=page)
 
-    async def start(self) -> None:
-        await self._tracker.start()
+    async def start(self, on_speaker_change=None) -> None:
+        await self._tracker.start(on_speaker_change=on_speaker_change)
 
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
         return self._tracker.current_speaker
@@ -42,7 +42,7 @@ class DOMSpeakerAttribution(SpeakerAttributionAdapter):
 class STTDiarizationAttribution(SpeakerAttributionAdapter):
     """Uses the STT provider's built-in diarization labels (e.g. Deepgram 'Speaker 0')."""
 
-    async def start(self) -> None:
+    async def start(self, on_speaker_change=None) -> None:
         pass
 
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
@@ -59,8 +59,8 @@ class HybridAttribution(SpeakerAttributionAdapter):
     def __init__(self, page: object) -> None:
         self._dom = DOMSpeakerAttribution(page=page)
 
-    async def start(self) -> None:
-        await self._dom.start()
+    async def start(self, on_speaker_change=None) -> None:
+        await self._dom.start(on_speaker_change=on_speaker_change)
 
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
         tracked_speaker = self._dom.get_speaker_for_segment(segment)
@@ -162,9 +162,11 @@ class CorrelationSpeakerAttribution(SpeakerAttributionAdapter):
         self._correlation = SpeakerCorrelationMap()
         self._active_speaker: Optional[str] = None
         self._running = False
+        self._on_speaker_change = None
 
-    async def start(self) -> None:
+    async def start(self, on_speaker_change=None) -> None:
         self._running = True
+        self._on_speaker_change = on_speaker_change
         await self._page.expose_binding("onActiveSpeakerPoll", self._handle_poll)
         await self._page.evaluate(_active_speaker_poller_script())
         _logger.info("GMEET: correlation speaker attribution started")
@@ -172,7 +174,18 @@ class CorrelationSpeakerAttribution(SpeakerAttributionAdapter):
     async def _handle_poll(self, source, payload) -> None:
         if not payload or not isinstance(payload, dict):
             return
-        self._active_speaker = payload.get("name")
+        name = payload.get("name")
+        prev = self._active_speaker
+        self._active_speaker = name
+
+        if self._on_speaker_change and name != prev:
+            try:
+                if prev:
+                    self._on_speaker_change(prev, False)
+                if name:
+                    self._on_speaker_change(name, True)
+            except Exception:
+                _logger.exception("GMEET: correlation speaker change callback failed")
 
     def get_speaker_for_segment(self, segment: TranscriptSegment) -> Optional[str]:
         label = segment.speaker

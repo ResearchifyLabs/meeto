@@ -31,7 +31,7 @@ class JoinConfig:
     disable_mic: bool = True
     disable_camera: bool = True
     join_timeout_ms: int = 90000
-    screenshot_dir: Optional[str] = "./screenshots"
+    screenshot_dir: Optional[str] = None
 
 
 @dataclass
@@ -39,6 +39,7 @@ class WorkerConfig:
     meeting_id: str
     meet_url: str
     duration_seconds: int = 3600
+    output_dir: str = "./generated"
     audio: AudioConfig = field(default_factory=AudioConfig)
     stt: SttConfig = field(default_factory=SttConfig)
     join: JoinConfig = field(default_factory=JoinConfig)

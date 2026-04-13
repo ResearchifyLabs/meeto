@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- `ManifestWriter` module for writing meeting participant manifests as JSON
+- `SpeakerEventWriter` module for persisting DOM-based speaker events as JSONL
+- `ParticipantScraper` for extracting participant metadata from Google Meet DOM
+- Unit tests for ManifestWriter, SpeakerEventWriter, and ParticipantScraper
+
+### Changed
+
+- Speaker attribution simplified to pure DOM-based polling — removed audio-level analysis and vote-based stream-name correlation (Google Meet uses ~3 shared audio channels regardless of participant count, making per-stream attribution unreliable)
+- All meeting artifacts now output under `{output_dir}/{meeting_id}/` (default `./generated/{meeting_id}/`)
+- `JoinConfig.screenshot_dir` default changed from `"./screenshots"` to `None` (auto-computed from output_dir)
+
+### Removed
+
+- `stream_recording_enabled` from `AudioConfig` — per-stream audio recording removed from pipeline
+- `stream_id` field from `SpeakerEvent` dataclass
+- `update_stream_mapping()` and `stream_to_participant` from manifest output
+- Vote-based stream-name correlation logic from `SpeakerTracker` JS
+
+### Fixed
+
+- `CorrelationSpeakerAttribution` now fires `on_speaker_change` callback (was silently ignoring it)
+
 ## [0.3.2] - 2026-03-23
 
 ### Added
