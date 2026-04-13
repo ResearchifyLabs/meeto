@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import time
 from typing import Optional
 
@@ -39,10 +40,12 @@ async def run_meeting_worker(
     state_store.update_status(config.meeting_id, status=MeetingLifecycleStatus.JOINING.value)
     _logger.info("GMEET JOB: joining meeting %s at %s", config.meeting_id, config.meet_url)
 
+    safe_id = config.meeting_id.replace("/", "_").replace("\\", "_")
+    meeting_base_dir = os.path.join(config.output_dir, safe_id)
+
     screenshot_dir = config.join.screenshot_dir
-    if screenshot_dir:
-        safe_id = config.meeting_id.replace("/", " ").replace("\\", "_")
-        screenshot_dir = f"{screenshot_dir}/{safe_id}"
+    if not screenshot_dir:
+        screenshot_dir = os.path.join(meeting_base_dir, "screenshots")
 
     try:
         session = await join_meet(
@@ -87,6 +90,7 @@ async def run_meeting_worker(
         meeting_id=config.meeting_id,
         audio=config.audio,
         stt=config.stt,
+        output_dir=config.output_dir,
         storage_adapter=storage_adapter,
         stt_adapter=stt_adapter,
     )
@@ -118,12 +122,24 @@ async def run_meeting_worker(
         await session.close()
         transcript_result = close_result.get("transcript") if close_result else None
         transcription_path = transcript_result.get("remote_path") if transcript_result else None
+        speaker_events_result = close_result.get("speaker_events") if close_result else None
+        speaker_events_path = (
+            (speaker_events_result.get("remote_path") or speaker_events_result.get("local_path"))
+            if speaker_events_result
+            else None
+        )
+        manifest_result = close_result.get("manifest") if close_result else None
+        manifest_path = (
+            (manifest_result.get("remote_path") or manifest_result.get("local_path")) if manifest_result else None
+        )
         final_status = MeetingLifecycleStatus.FAILED.value if failed else MeetingLifecycleStatus.COMPLETED.value
         state_store.update_status(
             config.meeting_id,
             status=final_status,
             ended_at=time.time(),
             transcription_path=transcription_path,
+            speaker_events_path=speaker_events_path,
+            manifest_path=manifest_path,
         )
 
     _logger.info("GMEET JOB: completed meeting %s", config.meeting_id)

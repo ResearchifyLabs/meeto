@@ -40,6 +40,8 @@ class InMemoryMeetingLifecycleStore(MeetingLifecycleStore):
         status: str,
         ended_at: Optional[float] = None,
         transcription_path: Optional[str] = None,
+        speaker_events_path: Optional[str] = None,
+        manifest_path: Optional[str] = None,
     ) -> None:
         ts_now = self._ts_now()
         current = self._meetings.get(meeting_id, {"meeting_id": meeting_id, "created_at": ts_now})
@@ -49,6 +51,10 @@ class InMemoryMeetingLifecycleStore(MeetingLifecycleStore):
             current["ended_at"] = ended_at
         if transcription_path is not None:
             current["transcription_path"] = transcription_path
+        if speaker_events_path is not None:
+            current["speaker_events_path"] = speaker_events_path
+        if manifest_path is not None:
+            current["manifest_path"] = manifest_path
         self._meetings[meeting_id] = current
 
     def heartbeat(self, meeting_id: str, *, worker_id: Optional[str] = None) -> None:

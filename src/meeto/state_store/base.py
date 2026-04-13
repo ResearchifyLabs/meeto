@@ -11,6 +11,8 @@ class MeetingLifecycleStore(abc.ABC):
         status: str,
         ended_at: Optional[float] = None,
         transcription_path: Optional[str] = None,
+        speaker_events_path: Optional[str] = None,
+        manifest_path: Optional[str] = None,
     ) -> None:
         raise NotImplementedError
 
